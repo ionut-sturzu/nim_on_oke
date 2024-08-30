@@ -9,7 +9,6 @@ This stack deploys an OKE cluster with two nodepools:
 And several supporting applications using helm:
 - nginx
 - cert-manager
-- qdrant vector DB
 - jupyterhub
 
 With the scope of demonstrating [nVidia NIM LLM](https://docs.nvidia.com/nim/large-language-models/latest/introduction.html) self-hosted model capabilities.
@@ -22,6 +21,9 @@ In case the bastion and operator hosts are not created, is a prerequisite to hav
 - jq
 - kubectl
 - oci-cli
+
+[![Deploy to Oracle Cloud](https://oci-resourcemanager-plugin.plugins.oci.oraclecloud.com/latest/deploy-to-oracle-cloud.svg)](https://cloud.oracle.com/resourcemanager/stacks/create?zipUrl=https://github.com/ionut-sturzu/nim_on_oke/archive/refs/heads/main.zip)
+
 
 ## Helm Deployments
 
@@ -46,97 +48,6 @@ jupyter_admin_password
 
 It also supports the option to automatically clone a git repo when user is connecting and making it available under `examples` directory.
 
-If you are looking to integrate JupyterHub with an Identity Provider, please take a look at the options available here: https://oauthenticator.readthedocs.io/en/latest/tutorials/provider-specific-setup/index.html
-
-For integration with your OCI tenancy IDCS domain, you may go through the following steps:
-
-1. Setup a new **Application** in IDCS
-
-- Navigate to the following address: https://cloud.oracle.com/identity/domains/
-
-- Click on the `OracleIdentityCloudService` domain
-
-- Navigate to `Integrated applications` from the left-side menu
-
-- Click **Add application**
-
-- Select *Confidential Application* and click **Launch worflow**
-
-2. Application configuration
-
-- Under *Add application details* configure
-
-    name: `Jupyterhub`
-
-    (all the other fields are optional, you may leave them empty)
-
-- Under *Configure OAuth*
-
-    Resource server configuration -> *Skip for later*
-
-    Client configuration -> *Configure this application as a client now*
-
-    Authorization:
-    - Check the `Authorization code` check-box
-    - Leave the other check-boxes unchecked
-
-    Redirect URL:
-
-    `https://<jupyterhub-domain>/hub/oauth_callback`
-
-- Under *Configure policy*
-    
-    Web tier policy -> *Skip for later*
-
-- Click **Finish**
-
-- Scroll down wehere you fill find the *General Information* section.
-
-- Copy the `Client ID` and `Client secret`:
-
-- Click **Activate** button at the top.
-
-3. Connect to the OKE cluster and update the JupyterHub Helm deployment values.
-
-- Create a file named `oauth2-values.yaml` with the following content (make sure to fill-in the values relevant for your setup)
-
-    ```yaml
-    hub:
-      config:
-        Authenticator:
-          allow_all: true
-        GenericOAuthenticator:
-          client_id: <client-id>
-          client_secret: <client-secret>
-
-          authorize_url:  <idcs-stripe-url>/oauth2/v1/authorize
-          token_url:  <idcs-stripe-url>/oauth2/v1/token
-          userdata_url:  <idcs-stripe-url>/oauth2/v1/userinfo
-
-          scope:
-          - openid
-          - email
-          username_claim: "email"
-        JupyterHub:
-          authenticator_class: generic-oauth
-    ```
-
-    **Note:** IDCS stripe URL can be fetched from the OracleIdentityCloudService IDCS Domain Overview -> Domain Information -> Domain URL.
-
-    Should be something like this: `https://idcs-18bb6a27b33d416fb083d27a9bcede3b.identity.oraclecloud.com`
-
-
-- Execute the following command to update the JupyterHub Helm deployment:
-
-    ```bash
-    helm upgrade jupyterhub jupyterhub --repo https://hub.jupyter.org/helm-chart/ --reuse-values -f oauth2-values.yaml
-    ```
-
-
-### Qdrant
-
-[Qdrant Vector DB](https://qdrant.tech/documentation/) is deployed in stand-alone mode to store the embeddings required the RAG pipeline.
-
 ### NIM
 
 The LLM is deployed using [NIM](https://docs.nvidia.com/nim/index.html).
@@ -151,81 +62,20 @@ To work around this issue, we can limit the context length using the `--max-mode
 
 In case of Mistral models, create a file `nim_user_values_override.yaml` file with the content below and provide it as input during ORM stack variable configuration.
 
-In case of manual deployment, assign this multiline string to the `nim_user_values_override` variable.
-
-```yaml
-customArgs:
-- /bin/bash
-- '-c'
-- |
-    #!/bin/bash
-    set -u
-    export VLLM_CONFIGURE_LOGGING=1
-    NIM_LOG_LEVEL="${NIM_LOG_LEVEL:-DEFAULT}"
-    case "${NIM_LOG_LEVEL}" in
-      "TRACE")
-        export TLLM_LOG_LEVEL="TRACE"
-        export VLLM_NVEXT_LOG_LEVEL="DEBUG"
-        export UVICORN_LOG_LEVEL="trace"
-        ;;
-      "DEBUG")
-        export TLLM_LOG_LEVEL="DEBUG"
-        export VLLM_NVEXT_LOG_LEVEL="DEBUG"
-        export UVICORN_LOG_LEVEL="debug"
-        ;;
-      "INFO")
-        export TLLM_LOG_LEVEL="INFO"
-        export VLLM_NVEXT_LOG_LEVEL="INFO"
-        export UVICORN_LOG_LEVEL="info"
-        ;;
-      "DEFAULT")
-        export TLLM_LOG_LEVEL="ERROR"
-        export VLLM_NVEXT_LOG_LEVEL="INFO"
-        export UVICORN_LOG_LEVEL="info"
-        ;;
-      "WARNING")
-        export TLLM_LOG_LEVEL="WARNING"
-        export VLLM_NVEXT_LOG_LEVEL="WARNING"
-        export UVICORN_LOG_LEVEL="warning"
-        ;;
-      "ERROR")
-        export TLLM_LOG_LEVEL="ERROR"
-        export VLLM_NVEXT_LOG_LEVEL="ERROR"
-        export UVICORN_LOG_LEVEL="error"
-        ;;
-      "CRITICAL")
-        export TLLM_LOG_LEVEL="ERROR"
-        export VLLM_NVEXT_LOG_LEVEL="CRITICAL"
-        export UVICORN_LOG_LEVEL="critical"
-        ;;
-      *)
-        echo "Unsupported value ('${NIM_LOG_LEVEL}') of NIM_LOG_LEVEL. Supported values are: TRACE, DEBUG, INFO, DEFAULT, WARNING, ERROR, CRITICAL." >&2
-        exit 1
-        ;;
-    esac
-    NIM_JSONL_LOGGING="${NIM_JSONL_LOGGING:-0}"
-    if [ "${NIM_JSONL_LOGGING}" = 1 ]; then
-      export VLLM_LOGGING_CONFIG_PATH="/etc/nim/config/python_jsonl_logging_config.json"
-      export VLLM_NVEXT_LOGGING_CONFIG_PATH="/etc/nim/config/python_jsonl_logging_config.json"
-    elif [ "${NIM_JSONL_LOGGING}" = 0 ]; then
-      export VLLM_LOGGING_CONFIG_PATH="/etc/nim/config/python_readable_logging_config.json"
-      export VLLM_NVEXT_LOGGING_CONFIG_PATH="/etc/nim/config/python_readable_logging_config.json"
-    else
-      echo "ERROR: Unsupported value ('${NIM_JSONL_LOGGING}') of NIM_JSONL_LOGGING env variable. Supported values are 0 and 1" >&2
-      exit 1
-    fi
-    python3 -m vllm_nvext.entrypoints.openai.api_server --max-model-len 16000
-```
-
 ## How to deploy?
 
-1. Deploy via ORM
+1. Deploy directly to OCI using the below button:
+
+[![Deploy to Oracle Cloud](https://oci-resourcemanager-plugin.plugins.oci.oraclecloud.com/latest/deploy-to-oracle-cloud.svg)](https://cloud.oracle.com/resourcemanager/stacks/create?zipUrl=https://github.com/ionut-sturzu/nim_on_oke/archive/refs/heads/main.zip)
+
+
+2. Deploy via ORM
 - Create a new stack
 - Upload the TF configuration files
 - Configure the variables
 - Apply
 
-2. Local deployment
+3. Local deployment
 
 - Create a file called `terraform.auto.tfvars` with the required values.
 
@@ -256,7 +106,7 @@ compartment_id         = "ocid1.compartment.oc1..aaaaaaaaqi3if6t4n24qyabx5pjzlw6
 # Jupyter Hub deployment values
 jupyter_admin_user     = "oracle-ai"
 jupyter_admin_password = "<admin-passowrd>"
-playbooks_repo         = "https://github.com/robo-cap/llm-jupyter-notebooks.git"
+playbooks_repo         = "https://github.com/ionut-sturzu/nim_notebooks.git"
 
 # NIM Deployment values
 nim_image_repository   = "nvcr.io/nim/meta/llama3-8b-instruct"
@@ -271,6 +121,10 @@ terraform init
 terraform plan
 terraform apply
 ```
+
+After the deployment is successful, get the Jupyter URL from the Terraform output and run it in the browser.
+Log in with the user/password that you previously set.
+Open and run the **NVIDIA_NIM_model_interaction.ipynb** notebook.
 
 ## Known Issues
 

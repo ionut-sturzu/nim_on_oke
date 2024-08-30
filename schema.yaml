@@ -1,6 +1,6 @@
 title: OKE AI Stack deployment
-description: Terraform Stack for OKE deployment with Nginx, Jupyter Notebook, Qdrant and NIM.
-informationalText: Terraform Stack for OKE deployment with Nginx, Jupyter Notebook, Qdrant and NIM.
+description: Terraform Stack for OKE deployment with Nginx, Jupyter Notebook and NIM.
+informationalText: Terraform Stack for OKE deployment with Nginx, Jupyter Notebook and NIM.
 schemaVersion: 1.1.0
 version: "20190304"
 
@@ -448,7 +448,7 @@ variables:
     type: string
     title: Helm | JupyterHub - Playbooks Git Repo
     description: "Git Repository with Jupyter plabooks examples."
-    default: "https://github.com/robo-cap/llm-jupyter-notebooks.git"
+    default: "https://github.com/ionut-sturzu/nim_notebooks.git"
     visible: ${deploy_jupyterhub}
 
   deploy_nim:

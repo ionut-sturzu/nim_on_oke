@@ -104,40 +104,6 @@ module "cert-manager" {
   depends_on = [module.oke]
 }
 
-
-module "qdrant" {
-  count  = var.deploy_qdrant ? 1 : 0
-  source = "./helm-module"
-
-  bastion_host    = module.oke.bastion_public_ip
-  bastion_user    = var.bastion_user
-  operator_host   = module.oke.operator_private_ip
-  operator_user   = var.bastion_user
-  ssh_private_key = tls_private_key.stack_key.private_key_openssh
-
-  deploy_from_operator = local.deploy_from_operator
-  deploy_from_local    = local.deploy_from_local
-
-  deployment_name     = "qdrant"
-  helm_chart_name     = "qdrant"
-  namespace           = "default"
-  helm_repository_url = "https://qdrant.to/helm"
-
-  pre_deployment_commands  = []
-  post_deployment_commands = []
-
-  helm_template_values_override = templatefile(
-    "${path.root}/helm-values-templates/qdrant-values.yaml.tpl",
-    {}
-  )
-  helm_user_values_override = try(base64decode(var.qdrant_user_values_override), var.qdrant_user_values_override)
-
-  kube_config = one(data.oci_containerengine_cluster_kube_config.kube_config.*.content)
-
-  depends_on = [module.oke]
-}
-
-
 module "jupyterhub" {
   count  = var.deploy_jupyterhub ? 1 : 0
   source = "./helm-module"
