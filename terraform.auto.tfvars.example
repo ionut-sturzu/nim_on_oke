@@ -9,6 +9,10 @@ create_iam_resources     = false
 create_iam_tag_namespace = false
 ssh_public_key           = "<ssh_public_key>"
 
+## Bastion and Operator shape
+bastion_shape  = { "shape" = "VM.Standard.E4.Flex" }
+operator_shape = { "shape" = "VM.Standard.E4.Flex" }
+
 ## NodePool with non-GPU shape is created by default with size 1
 simple_np_flex_shape   = { "instanceShape" = "VM.Standard.E4.Flex", "ocpus" = 2, "memory" = 12 }
 
